@@ -170,11 +170,11 @@ textarea { resize: vertical; min-height: 80px; }
 .g-check { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--border2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .1s; }
 .g-check.on { background: var(--text); border-color: var(--text); }
 .g-check.on::after { content: ''; display: block; width: 5px; height: 3px; border-left: 2px solid var(--bg); border-bottom: 2px solid var(--bg); transform: rotate(-45deg) translate(1px, -1px); }
-.g-name { flex: 1; color: var(--text); transition: color .1s; }
+.g-name-wrap { flex: 1; min-width: 0; }
+.g-name { color: var(--text); transition: color .1s; display: block; }
 .g-name.done { text-decoration: line-through; color: var(--text3); }
 .g-qty { font-size: 11px; color: var(--text3); white-space: nowrap; }
-.g-for-recipes { display: block; font-size: 10px; color: var(--text3); font-style: italic; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0; transition: opacity .15s; pointer-events: none; }
-.g-item:hover .g-for-recipes { opacity: 1; }
+.g-for-recipes { display: block; font-size: 10px; color: var(--text3); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .g-dismiss-btn { padding: 1px 5px; font-size: 11px; min-width: 0; color: var(--text3); opacity: 0; transition: opacity .15s; }
 .g-item:hover .g-dismiss-btn { opacity: 1; }
 
@@ -292,8 +292,6 @@ textarea { resize: vertical; min-height: 80px; }
   .g-qty { font-size: 12px; }
   /* Always show dismiss button on mobile (no hover) */
   .g-dismiss-btn { opacity: 1 !important; }
-  /* Always show recipe hint on mobile */
-  .g-for-recipes { opacity: 0.6 !important; }
 
   /* Grocery add bar stays sticky at top on mobile */
   #view-grocery .page-header { position: sticky; top: 0; background: var(--bg); z-index: 50; padding-top: 12px; margin: -16px -14px 12px; padding-left: 14px; padding-right: 14px; border-bottom: 0.5px solid var(--border); padding-bottom: 10px; }
@@ -1578,25 +1576,6 @@ function buildGroceryItems() {
     }
   }
 
-  // Standard weekly staples
-  const staples = [
-    { name:'Eggs', qty:'2 dozen', cat:'dairy', store:'Costco' },
-    { name:'Milk', qty:'1 gallon', cat:'dairy', store:'Costco' },
-    { name:'Yogurt', qty:'large tub', cat:'dairy', store:'Costco' },
-    { name:'Bread', qty:'1 loaf', cat:'dry', store:'Costco' },
-    { name:'Bananas', qty:'1 bunch', cat:'produce', store:'Costco' },
-    { name:'Spinach', qty:'1 bag', cat:'produce', store:'Costco' },
-    { name:'Frozen peas', qty:'1 bag', cat:'frozen', store:'Costco' },
-    { name:'String cheese', qty:'1 bag', cat:'dairy', store:'Costco' },
-    { name:'Dish soap', qty:'1', cat:'household', store:'Target' },
-    { name:'Paper towels', qty:'1 roll', cat:'household', store:'Target' },
-    { name:'Baby wipes', qty:'1 pack', cat:'household', store:'Target' },
-  ];
-  staples.forEach(s => {
-    const key = s.name.toLowerCase();
-    if (!itemMap[key]) itemMap[key] = s;
-  });
-
   // Manual additions (always included, with a remove flag)
   state.manualGrocery.forEach(m => {
     const key = '__manual__' + m.name.toLowerCase();
@@ -1651,10 +1630,13 @@ function renderGrocery() {
               const key = `${st}::${item.name}`;
               const checked = state.checkedGrocery[key];
               const removeBtn = item.manual ? `<button class="btn btn-sm g-dismiss-btn" onclick="event.stopPropagation();removeManualGrocery('${item.name.replace(/'/g,"\\'")}')"><i class="ti ti-x"></i></button>` : `<button class="btn btn-sm g-dismiss-btn" title="We have this" onclick="event.stopPropagation();dismissGroceryItem('${item.name.replace(/'/g,"\\'")}')"><i class="ti ti-x"></i></button>`;
-              const forHint = item.forRecipes && item.forRecipes.length ? `<span class="g-for-recipes">${item.forRecipes.join(', ')}</span>` : '';
-              return `<div class="g-item" onclick="toggleGrocery('${key}',this)" title="${item.forRecipes && item.forRecipes.length ? 'For: ' + item.forRecipes.join(', ') : ''}">
+              const forHint = item.forRecipes && item.forRecipes.length ? `<span class="g-for-recipes">for: ${item.forRecipes.join(', ')}</span>` : '';
+              return `<div class="g-item" onclick="toggleGrocery('${key}',this)">
                 <div class="g-check${checked?' on':''}"></div>
-                <span class="g-name${checked?' done':''}">${item.name}${forHint}</span>
+                <div class="g-name-wrap">
+                  <span class="g-name${checked?' done':''}">${item.name}</span>
+                  ${forHint}
+                </div>
                 <span class="g-qty">${item.qty||''}</span>
                 ${removeBtn}
               </div>`;
@@ -1725,16 +1707,14 @@ function clearMealPlan() {
 }
 
 function clearAllGrocery() {
-  if (!confirm('Done shopping? This will clear the grocery list AND the meal plan so you can start fresh next week.')) return;
-  // Clear grocery state
+  if (!confirm('Clear the entire grocery list? This won\'t affect your meal plan.')) return;
   state.checkedGrocery = {};
   state.manualGrocery = [];
   state.dismissedGrocery = {};
   state.showCheckedGrocery = false;
-  // Clear meal plan
-  state.schedule = {};
   save();
   renderGrocery();
+  showToast('Grocery list cleared');
 }
 
 function toggleShowChecked() {
