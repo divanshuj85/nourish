@@ -1556,25 +1556,25 @@ function storeOf(item, cat) {
 function buildGroceryItems() {
   const itemMap = {}; // key -> { name, qty, cat, store }
 
-  // From scheduled meals
-  const start = getPlanStart();
-  for (let i = 0; i < PLAN_DAYS; i++) {
-    const k = fmtDate(addDays(start, i));
-    const s = state.schedule[k];
-    if (!s) continue;
-    const r = getRecipe(s.dinner);
-    if (r && r.ingredients) {
+  // From all scheduled meals (both lunch and dinner, all dates)
+  Object.values(state.schedule).forEach(s => {
+    ['lunch', 'dinner'].forEach(slot => {
+      const r = getRecipe(s[slot]);
+      if (!r || !r.ingredients) return;
       r.ingredients.forEach(ing => {
-        const key = ing.split('—')[0].trim().toLowerCase().replace(/\s+/g,' ');
+        const parts = ing.split(/\s*—\s*/);
+        const name = parts[0].trim();
+        const qty  = parts[1]?.trim() || '';
+        const key  = name.toLowerCase().replace(/\s+/g,' ');
         if (!itemMap[key]) {
-          itemMap[key] = { name: ing.split('—')[0].trim(), qty: ing.split('—')[1]?.trim() || '', cat: catOf(key), store: storeOf(key, catOf(key)), forRecipes: [] };
+          itemMap[key] = { name, qty, cat: catOf(key), store: storeOf(key, catOf(key)), forRecipes: [] };
         }
-        if (itemMap[key].forRecipes && !itemMap[key].forRecipes.includes(r.name)) {
+        if (!itemMap[key].forRecipes.includes(r.name)) {
           itemMap[key].forRecipes.push(r.name);
         }
       });
-    }
-  }
+    });
+  });
 
   // Manual additions (always included, with a remove flag)
   state.manualGrocery.forEach(m => {
