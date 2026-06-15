@@ -435,6 +435,14 @@ textarea { resize: vertical; min-height: 80px; }
         </div>
 
         <div class="divider"></div>
+        <div class="label">NYT Cooking (or any paywalled site)</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.6">Drag this to your bookmarks bar. When you're on any recipe page (logged in), click it to send the recipe straight to Nourish:</div>
+        <a id="nourish-bookmarklet" href="" onclick="event.preventDefault()" style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text);text-decoration:none;cursor:grab;user-select:none">
+          🔖 Add to Nourish
+        </a>
+        <div style="font-size:11px;color:var(--text3);margin-top:6px">Drag the button above to your bookmarks bar, then click it while viewing any recipe.</div>
+
+        <div class="divider"></div>
         <div class="label">Or add manually</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
           <input type="text" id="m-name" placeholder="Recipe name" />
@@ -2096,12 +2104,50 @@ function setSyncStatus(status) {
 }
 
 // ─────────────────────────────────────────────
+// BOOKMARKLET
+// ─────────────────────────────────────────────
+const BOOKMARKLET_CODE = `javascript:(function(){var s=document.querySelectorAll('script[type="application/ld+json"]'),r=null;for(var i=0;i<s.length;i++){try{var d=JSON.parse(s[i].textContent),c=Array.isArray(d)?d:[d].concat(d['@graph']||[]),f=c.find(function(x){return x&&(x['@type']==='Recipe'||Array.isArray(x['@type'])&&x['@type'].includes('Recipe'))});if(f){r=f;break;}}catch(e){}}if(!r){alert('No recipe found on this page.');return;}var data={name:r.name,ingredients:(r.recipeIngredient||[]).slice(0,24),instructions:((r.recipeInstructions||[]).map(function(s){return typeof s==='string'?s:(s.text||'');}).filter(Boolean)).slice(0,12),time:r.totalTime?parseInt(r.totalTime.replace(/\\D/g,''))||30:30,url:location.href};window.open('https://divanshuj85.github.io/nourish/?recipe='+encodeURIComponent(JSON.stringify(data)));})();`;
+
+function initBookmarklet() {
+  const el = document.getElementById('nourish-bookmarklet');
+  if (el) el.href = BOOKMARKLET_CODE;
+}
+
+// ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
 load();
 initSync();
 renderRecipes();
 renderSchedule();
+initBookmarklet();
+
+// Handle recipe imported via bookmarklet (?recipe=...)
+(function() {
+  const rp = new URLSearchParams(location.search).get('recipe');
+  if (!rp) return;
+  try {
+    const rd = JSON.parse(decodeURIComponent(rp));
+    state.pendingRecipe = {
+      id: 'r' + Date.now(),
+      name: sanitizeName(rd.name || 'Imported recipe'),
+      ingredients: rd.ingredients || [],
+      instructions: rd.instructions || [],
+      time: rd.time || 30,
+      url: rd.url || '',
+      source: detectSource(rd.url || ''),
+      tags: [],
+      rating: 0,
+      protein: guessProtein(rd.ingredients || [], rd.name || ''),
+      diet: guessDiet(rd.ingredients || [], rd.name || ''),
+      notes: '',
+    };
+    document.getElementById('add-panel').style.display = 'block';
+    state.addPanelOpen = true;
+    showFetchResult(state.pendingRecipe);
+    history.replaceState({}, '', location.pathname);
+  } catch(e) { console.warn('Bookmarklet import failed', e); }
+})();
 </script>
 </body>
 </html>
