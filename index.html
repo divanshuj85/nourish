@@ -1697,13 +1697,17 @@ function removeManualGrocery(name) {
 
 function clearMealPlan() {
   if (!confirm('Clear the entire meal plan and grocery list and start fresh?')) return;
-  state.schedule = {};
+  // Clear all schedule slots including kids veg
+  Object.keys(state.schedule).forEach(k => {
+    state.schedule[k] = { lunch: null, dinner: null, kidsVeg: '' };
+  });
   state.checkedGrocery = {};
   state.manualGrocery = [];
   state.dismissedGrocery = {};
   state.showCheckedGrocery = false;
   save();
   renderSchedule();
+  showToast('Meal plan and grocery list cleared');
 }
 
 function clearAllGrocery() {
