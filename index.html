@@ -864,7 +864,7 @@ function slotRecipe(id) {
   const start = getPlanStart();
   for (let i = 0; i < PLAN_DAYS; i++) {
     const k = fmtDate(addDays(start, i));
-    if (!state.schedule[k]) state.schedule[k] = { lunch: null, dinner: null, kidsVeg: KIDS_VEGS[i % KIDS_VEGS.length] };
+    if (!state.schedule[k]) state.schedule[k] = { lunch: null, dinner: null, kidsVeg: '' };
     if (!state.schedule[k].dinner) {
       state.schedule[k].dinner = id;
       save();
@@ -1192,7 +1192,7 @@ function renderSchedule() {
   // Ensure all days exist
   for (let i = 0; i < PLAN_DAYS; i++) {
     const k = fmtDate(addDays(start, i));
-    if (!state.schedule[k]) state.schedule[k] = { lunch: null, dinner: null, kidsVeg: KIDS_VEGS[i % KIDS_VEGS.length] };
+    if (!state.schedule[k]) state.schedule[k] = { lunch: null, dinner: null, kidsVeg: '' };
   }
 
   let html = '';
@@ -1305,7 +1305,7 @@ function filterSwapOptions(q) { renderSwapOptions(q); }
 
 function applySwap(id) {
   const { date, slot } = state.swapTarget;
-  if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: KIDS_VEGS[0] };
+  if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: '' };
   state.schedule[date][slot] = id;
   save();
   closeModal();
@@ -1941,8 +1941,8 @@ function onDrop(e, date, slot) {
   // Swap values between source and target
   const targetVal = state.schedule[date]?.[slot] || null;
 
-  if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: KIDS_VEGS[0] };
-  if (!state.schedule[dragSrc.date]) state.schedule[dragSrc.date] = { lunch: null, dinner: null, kidsVeg: KIDS_VEGS[0] };
+  if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: '' };
+  if (!state.schedule[dragSrc.date]) state.schedule[dragSrc.date] = { lunch: null, dinner: null, kidsVeg: '' };
 
   state.schedule[date][slot] = dragSrc.value;
   state.schedule[dragSrc.date][dragSrc.slot] = targetVal;
