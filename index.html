@@ -239,6 +239,11 @@ textarea { resize: vertical; min-height: 80px; }
 .saved-badge.show { opacity: 1; }
 
 /* Drag and drop */
+.meal-chip-wrap { display: flex; align-items: center; gap: 2px; }
+.slot-clear-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 13px; line-height: 1; padding: 1px 3px; border-radius: 4px; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+.meal-chip-wrap:hover .slot-clear-btn { opacity: 1; }
+.slot-clear-btn:hover { color: #ef4444; background: #fee2e2; }
+@media (max-width: 640px) { .slot-clear-btn { opacity: 1 !important; } }
 .meal-chip[draggable=true] { cursor: grab; }
 .meal-chip[draggable=true]:active { cursor: grabbing; }
 .meal-chip.dragging { opacity: .35; }
@@ -1228,10 +1233,14 @@ function schedGrid(start, days) {
 
     h += `<div class="sg-day"><div class="sg-day-name">${dayName(d)}</div><div class="sg-day-date">${fmtShort(d)}</div></div>`;
     h += `<div class="sg-cell" ondragover="onDragOver(event,'${k}','lunch')" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${k}','lunch')">
-      ${lunchName ? `<span class="meal-chip" draggable="true" ondragstart="onDragStart(event,'${k}','lunch')" ondragend="onDragEnd(event)" onclick="openInfoModal('${k}','lunch')">${lunchName}</span>` : `<span class="meal-chip empty" onclick="openSwap('${k}','lunch')">+ Add</span>`}
+      ${lunchName
+        ? `<div class="meal-chip-wrap"><span class="meal-chip" draggable="true" ondragstart="onDragStart(event,'${k}','lunch')" ondragend="onDragEnd(event)" onclick="openInfoModal('${k}','lunch')">${lunchName}</span><button class="slot-clear-btn" onclick="clearSlot('${k}','lunch')" title="Remove">×</button></div>`
+        : `<span class="meal-chip empty" onclick="openSwap('${k}','lunch')">+ Add</span>`}
     </div>`;
     h += `<div class="sg-cell" ondragover="onDragOver(event,'${k}','dinner')" ondragleave="onDragLeave(event)" ondrop="onDrop(event,'${k}','dinner')">
-      ${dinnerName ? `<span class="meal-chip${isLow?' warn':''}" draggable="true" ondragstart="onDragStart(event,'${k}','dinner')" ondragend="onDragEnd(event)" onclick="openInfoModal('${k}','dinner')">${isLow?'⚠ ':''} ${dinnerName}</span>` : `<span class="meal-chip empty" onclick="openSwap('${k}','dinner')">+ Add</span>`}
+      ${dinnerName
+        ? `<div class="meal-chip-wrap"><span class="meal-chip${isLow?' warn':''}" draggable="true" ondragstart="onDragStart(event,'${k}','dinner')" ondragend="onDragEnd(event)" onclick="openInfoModal('${k}','dinner')">${isLow?'⚠ ':''} ${dinnerName}</span><button class="slot-clear-btn" onclick="clearSlot('${k}','dinner')" title="Remove">×</button></div>`
+        : `<span class="meal-chip empty" onclick="openSwap('${k}','dinner')">+ Add</span>`}
     </div>`;
     h += `<div class="sg-cell" onclick="openKvModal('${k}')"><span class="kids-veg" style="cursor:pointer">${slot.kidsVeg ? `${slot.kidsVeg} <span style="opacity:.4;font-size:10px">✎</span>` : `<span style="color:var(--text3)">+ Add veg</span>`}</span></div>`;
   }
@@ -1316,6 +1325,14 @@ function applySwap(id) {
       showToast(`${r.ingredients.length} ingredients from "${r.name}" added to grocery list`);
     }
   }
+}
+
+function clearSlot(date, slot) {
+  if (!state.schedule[date]) return;
+  state.schedule[date][slot] = null;
+  save();
+  renderSchedule();
+  showToast('Meal removed · grocery list updated');
 }
 
 function closeModal() { document.getElementById('swap-modal').classList.remove('open'); }
