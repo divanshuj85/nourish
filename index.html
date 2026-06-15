@@ -1316,6 +1316,21 @@ function applySwap(id) {
   const { date, slot } = state.swapTarget;
   if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: '' };
   state.schedule[date][slot] = id;
+  // Un-dismiss and un-check this recipe's ingredients so they show up fresh
+  if (id) {
+    const r = getRecipe(id);
+    if (r && r.ingredients) {
+      r.ingredients.forEach(ing => {
+        const name = ing.split(/\s*—\s*/)[0].trim();
+        const key  = name.toLowerCase();
+        delete state.dismissedGrocery[key];
+        // Remove from checkedGrocery under any store key
+        Object.keys(state.checkedGrocery).forEach(k => {
+          if (k.endsWith('::' + name)) delete state.checkedGrocery[k];
+        });
+      });
+    }
+  }
   save();
   closeModal();
   renderSchedule();
