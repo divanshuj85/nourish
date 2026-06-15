@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nourish</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 :root {
   --bg: #ffffff;
@@ -222,6 +224,9 @@ textarea { resize: vertical; min-height: 80px; }
 .loading { display: none; font-size: 12px; color: var(--text2); padding: 6px 0; }
 .loading.show { display: block; }
 
+/* Toast */
+.toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--text); color:var(--bg); padding:9px 18px; border-radius:99px; font-size:12px; font-weight:500; z-index:400; opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap; box-shadow:0 4px 16px rgba(0,0,0,.18); }
+
 /* Star rating */
 .star-row { display: flex; gap: 3px; }
 .star { font-size: 18px; cursor: pointer; color: var(--text3); transition: color .1s; line-height: 1; user-select: none; }
@@ -370,6 +375,7 @@ textarea { resize: vertical; min-height: 80px; }
     <div class="nav-btn" data-view="snacks" onclick="nav('snacks',this)">
       <i class="ti ti-package"></i><span class="tip">Snack box</span>
     </div>
+    <div id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;margin:0 auto 4px;flex-shrink:0;transition:background .4s" title="Offline mode"></div>
     <div class="app-mark">NOURISH</div>
   </aside>
 
@@ -382,7 +388,11 @@ textarea { resize: vertical; min-height: 80px; }
           <div class="page-title">Recipe library</div>
           <div class="page-sub" id="recipe-count-label">Loading…</div>
         </div>
-        <button class="btn btn-primary" onclick="toggleAddPanel()"><i class="ti ti-plus"></i> Add recipe</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn" onclick="exportData()" title="Download all your data as a backup file"><i class="ti ti-download"></i> Export</button>
+          <label class="btn" title="Restore from a backup file" style="cursor:pointer"><i class="ti ti-upload"></i> Import<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
+          <button class="btn btn-primary" onclick="toggleAddPanel()"><i class="ti ti-plus"></i> Add recipe</button>
+        </div>
       </div>
       <div style="position:relative;margin-bottom:14px;">
         <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--text3);pointer-events:none"></i>
@@ -414,8 +424,9 @@ textarea { resize: vertical; min-height: 80px; }
               <textarea id="fr-notes" placeholder="Tweaks, what worked, who liked it…" style="min-height:56px;font-size:12px"></textarea>
             </div>
           </div>
-          <div style="display:flex;gap:6px;margin-top:10px;">
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="confirmAddRecipe()"><i class="ti ti-plus"></i> Save to library</button>
+            <button class="btn" onclick="confirmAddRecipeAndSlot()"><i class="ti ti-calendar-plus"></i> Save & add to plan</button>
             <button class="btn" onclick="cancelAdd()">Cancel</button>
           </div>
         </div>
@@ -450,7 +461,8 @@ textarea { resize: vertical; min-height: 80px; }
             <option value="chicken">Chicken</option>
             <option value="fish">Fish</option>
           </select>
-          <button class="btn btn-primary" style="margin-left:auto" onclick="addManual()">Add</button>
+          <button class="btn" onclick="addManualAndSlot()"><i class="ti ti-calendar-plus"></i> Add & slot</button>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="addManual()"><i class="ti ti-plus"></i> Add to library</button>
         </div>
       </div>
 
@@ -467,7 +479,10 @@ textarea { resize: vertical; min-height: 80px; }
           <div class="page-title">Meal plan</div>
           <div class="page-sub" id="sched-date-label"></div>
         </div>
-        <button class="btn btn-primary" onclick="autoSlotAll()"><i class="ti ti-wand"></i> Auto-slot</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn" style="color:#ef4444" onclick="clearMealPlan()"><i class="ti ti-trash"></i> Clear all</button>
+          <button class="btn btn-primary" onclick="autoSlotAll()"><i class="ti ti-wand"></i> Auto-slot</button>
+        </div>
       </div>
       <div id="schedule-body"></div>
     </div>
@@ -625,6 +640,34 @@ let state = {
   addPanelOpen: false,
 };
 
+function exportData() {
+  const data = localStorage.getItem('nourish_v2') || JSON.stringify({ recipes: state.recipes, schedule: state.schedule });
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `nourish-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validate it looks like nourish data
+      if (!parsed.recipes && !parsed.schedule) throw new Error('Not a Nourish backup file');
+      localStorage.setItem('nourish_v2', e.target.result);
+      location.reload();
+    } catch(err) {
+      alert('Could not import: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
 function save() {
   localStorage.setItem('nourish_v2', JSON.stringify({
     recipes: state.recipes,
@@ -635,6 +678,7 @@ function save() {
     snackPicks: state.snackPicks,
     nextSnackPicks: state.nextSnackPicks,
   }));
+  pushToCloud();
 }
 
 function sanitizeName(name) {
@@ -802,10 +846,23 @@ function deleteRecipe(id) {
   save(); renderRecipes();
 }
 
+function showToast(msg) {
+  let el = document.getElementById('nourish-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'nourish-toast';
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2800);
+}
+
 function slotRecipe(id) {
   const r = state.recipes.find(x => x.id === id);
   if (!r) return;
-  // find first empty dinner slot
   const start = getPlanStart();
   for (let i = 0; i < PLAN_DAYS; i++) {
     const k = fmtDate(addDays(start, i));
@@ -813,12 +870,54 @@ function slotRecipe(id) {
     if (!state.schedule[k].dinner) {
       state.schedule[k].dinner = id;
       save();
-      alert(`Slotted "${r.name}" into ${dayName(addDays(start,i))} dinner.`);
+      const ingCount = r.ingredients ? r.ingredients.length : 0;
+      showToast(`"${r.name}" → ${dayName(addDays(start,i))} dinner · ${ingCount} ingredients added to grocery list`);
       nav('schedule', document.querySelector('[data-view="schedule"]'));
       return;
     }
   }
-  alert('All dinner slots are full. Open the schedule to swap meals.');
+  showToast('All dinner slots are full — tap a meal in the schedule to swap.');
+}
+
+function confirmAddRecipeAndSlot() {
+  if (!state.pendingRecipe) return;
+  state.pendingRecipe.rating = ratingState['__fetch'] || 0;
+  const notesEl = document.getElementById('fr-notes');
+  if (notesEl) state.pendingRecipe.notes = notesEl.value.trim();
+  const r = state.pendingRecipe;
+  state.recipes.unshift(r);
+  state.pendingRecipe = null;
+  save(); cancelAdd();
+  document.getElementById('add-panel').style.display = 'none';
+  state.addPanelOpen = false;
+  renderRecipes();
+  slotRecipe(r.id);
+}
+
+function addManualAndSlot() {
+  const name = document.getElementById('m-name').value.trim();
+  if (!name) { alert('Please enter a recipe name.'); return; }
+  const ings = document.getElementById('m-ingredients').value.trim().split('\n').filter(Boolean);
+  const r = {
+    id: 'r' + Date.now(),
+    name,
+    url: document.getElementById('m-url').value.trim(),
+    source: document.getElementById('m-source').value,
+    time: parseInt(document.getElementById('m-time').value) || 0,
+    rating: parseInt(document.getElementById('m-rating').value) || 0,
+    protein: document.getElementById('m-protein').value,
+    diet: document.getElementById('m-diet').value,
+    tags: [],
+    notes: '',
+    ingredients: ings,
+  };
+  state.recipes.unshift(r);
+  save();
+  ['m-name','m-url','m-time','m-rating','m-ingredients'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('add-panel').style.display = 'none';
+  state.addPanelOpen = false;
+  renderRecipes();
+  slotRecipe(r.id);
 }
 
 // ─────────────────────────────────────────────
@@ -1213,6 +1312,12 @@ function applySwap(id) {
   save();
   closeModal();
   renderSchedule();
+  if (id) {
+    const r = getRecipe(id);
+    if (r && r.ingredients && r.ingredients.length) {
+      showToast(`${r.ingredients.length} ingredients from "${r.name}" added to grocery list`);
+    }
+  }
 }
 
 function closeModal() { document.getElementById('swap-modal').classList.remove('open'); }
@@ -1608,18 +1713,26 @@ function removeManualGrocery(name) {
   renderGrocery();
 }
 
-function clearAllGrocery() {
-  if (!confirm('Clear the entire grocery list? You can still see checked items by tapping "Show completed".')) return;
-  const items = buildGroceryItems();
+function clearMealPlan() {
+  if (!confirm('Clear the entire meal plan and grocery list and start fresh?')) return;
+  state.schedule = {};
   state.checkedGrocery = {};
-  items.forEach(item => {
-    // Mark under every store key so hide-checked filter catches them all
-    ['All stores', item.store].forEach(st => {
-      state.checkedGrocery[`${st}::${item.name}`] = true;
-    });
-  });
   state.manualGrocery = [];
+  state.dismissedGrocery = {};
   state.showCheckedGrocery = false;
+  save();
+  renderSchedule();
+}
+
+function clearAllGrocery() {
+  if (!confirm('Done shopping? This will clear the grocery list AND the meal plan so you can start fresh next week.')) return;
+  // Clear grocery state
+  state.checkedGrocery = {};
+  state.manualGrocery = [];
+  state.dismissedGrocery = {};
+  state.showCheckedGrocery = false;
+  // Clear meal plan
+  state.schedule = {};
   save();
   renderGrocery();
 }
@@ -1856,9 +1969,116 @@ function onDrop(e, date, slot) {
 }
 
 // ─────────────────────────────────────────────
+// FIREBASE SYNC
+// ─────────────────────────────────────────────
+// Paste your Firebase config here to enable real-time sync across devices.
+// Get it from: console.firebase.google.com → your project → Project settings → Your apps → SDK setup
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyANi0vvedHf4qtsYai70NozF7wTB4cO8bg",
+  authDomain: "nourish-a8a32.firebaseapp.com",
+  projectId: "nourish-a8a32",
+  storageBucket: "nourish-a8a32.firebasestorage.app",
+  messagingSenderId: "800854399376",
+  appId: "1:800854399376:web:28dcf2ae4485192ba5bb15",
+};
+/* Example — replace null above with:
+{
+  apiKey: "AIzaSy...",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+}
+*/
+
+let _syncRef = null;
+let _lastPush = 0;
+let _ignoreNext = false;
+
+function initSync() {
+  if (!FIREBASE_CONFIG || typeof firebase === 'undefined') {
+    setSyncStatus('off');
+    return;
+  }
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const db = firebase.firestore();
+    _syncRef = db.collection('nourish').doc('family');
+
+    // Load from cloud first, then listen for changes
+    setSyncStatus('syncing');
+    _syncRef.get().then(snap => {
+      if (snap.exists) applyRemoteState(snap.data());
+      // Real-time listener
+      _syncRef.onSnapshot(snap => {
+        if (_ignoreNext) { _ignoreNext = false; return; }
+        if (snap.exists) applyRemoteState(snap.data());
+        setSyncStatus('synced');
+      }, () => setSyncStatus('error'));
+    }).catch(() => setSyncStatus('error'));
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    setSyncStatus('error');
+  }
+}
+
+function pushToCloud() {
+  if (!_syncRef) return;
+  _lastPush = Date.now();
+  _ignoreNext = true;
+  setSyncStatus('syncing');
+  _syncRef.set({
+    recipes: state.recipes,
+    schedule: state.schedule,
+    checkedGrocery: state.checkedGrocery,
+    manualGrocery: state.manualGrocery,
+    dismissedGrocery: state.dismissedGrocery || {},
+    snackPicks: state.snackPicks,
+    nextSnackPicks: state.nextSnackPicks,
+    updatedAt: Date.now(),
+  }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
+}
+
+function applyRemoteState(data) {
+  if (!data || !data.recipes) return;
+  state.recipes       = (data.recipes || INITIAL_RECIPES).map(r => ({ ...r, name: sanitizeName(r.name) }));
+  state.schedule      = data.schedule || {};
+  state.checkedGrocery  = data.checkedGrocery || {};
+  state.manualGrocery   = data.manualGrocery || [];
+  state.dismissedGrocery = data.dismissedGrocery || {};
+  state.snackPicks      = data.snackPicks || [0,1];
+  state.nextSnackPicks  = data.nextSnackPicks || [];
+  // Also mirror to localStorage
+  localStorage.setItem('nourish_v2', JSON.stringify(data));
+  // Re-render current view
+  const v = document.querySelector('.nav-btn.active')?.dataset.view;
+  if (v === 'recipes')   renderRecipes();
+  if (v === 'schedule')  renderSchedule();
+  if (v === 'grocery')   renderGrocery();
+  if (v === 'nutrition') renderNutrition();
+  if (v === 'snacks')    renderSnacks();
+}
+
+function setSyncStatus(status) {
+  const el = document.getElementById('sync-dot');
+  if (!el) return;
+  const map = {
+    synced:  { bg:'#059669', title:'Synced across devices' },
+    syncing: { bg:'#f59e0b', title:'Syncing…' },
+    error:   { bg:'#ef4444', title:'Sync error — check Firebase config' },
+    off:     { bg:'#d1d5db', title:'Offline mode — changes stay local only' },
+  };
+  const s = map[status] || map.off;
+  el.style.background = s.bg;
+  el.title = s.title;
+}
+
+// ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
 load();
+initSync();
 renderRecipes();
 renderSchedule();
 </script>
