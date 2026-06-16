@@ -362,10 +362,10 @@ textarea { resize: vertical; min-height: 80px; }
 
 <div class="shell">
   <aside class="sidebar">
-    <div class="nav-btn active" data-view="recipes" onclick="nav('recipes',this)" title="Recipes">
+    <div class="nav-btn" data-view="recipes" onclick="nav('recipes',this)" title="Recipes">
       <i class="ti ti-book-2"></i><span class="tip">Recipes</span>
     </div>
-    <div class="nav-btn" data-view="schedule" onclick="nav('schedule',this)">
+    <div class="nav-btn active" data-view="schedule" onclick="nav('schedule',this)">
       <i class="ti ti-calendar-week"></i><span class="tip">Schedule</span>
     </div>
     <div class="nav-btn" data-view="grocery" onclick="nav('grocery',this)">
@@ -385,7 +385,7 @@ textarea { resize: vertical; min-height: 80px; }
   <main class="main">
 
     <!-- ── RECIPES ── -->
-    <div id="view-recipes" class="view active">
+    <div id="view-recipes" class="view">
       <div class="page-header">
         <div>
           <div class="page-title">Recipe library</div>
@@ -484,7 +484,7 @@ textarea { resize: vertical; min-height: 80px; }
     </div>
 
     <!-- ── SCHEDULE ── -->
-    <div id="view-schedule" class="view">
+    <div id="view-schedule" class="view active">
       <div class="page-header">
         <div>
           <div class="page-title">Meal plan</div>
@@ -738,10 +738,8 @@ function nav(id, el) {
 // ─────────────────────────────────────────────
 function getPlanStart() {
   const d = new Date();
-  // Start from next Sunday
-  const day = d.getDay();
-  const diff = (7 - day) % 7;
-  d.setDate(d.getDate() + (diff === 0 ? 0 : diff));
+  // Start from the Sunday of the current week
+  d.setDate(d.getDate() - d.getDay());
   d.setHours(0,0,0,0);
   return d;
 }
@@ -751,7 +749,7 @@ function dayName(d) { return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDa
 function fmtShort(d) { return `${d.toLocaleString('default',{month:'short'})} ${d.getDate()}`; }
 function isWeekend(d) { return [0,5,6].includes(d.getDay()); }
 
-const PLAN_DAYS = 10;
+const PLAN_DAYS = 21;
 
 // ─────────────────────────────────────────────
 // RECIPES
@@ -1214,12 +1212,12 @@ function renderSchedule() {
   }
 
   let html = '';
-  // Week 1
-  html += `<div class="week-label">Week 1 · ${fmtShort(start)} – ${fmtShort(addDays(start,6))}</div>`;
+  html += `<div class="week-label">This week · ${fmtShort(start)} – ${fmtShort(addDays(start,6))}</div>`;
   html += schedGrid(start, 7);
-  // Week 2 (flex, days 7-9)
-  html += `<div class="week-label">Week 2 · ${fmtShort(addDays(start,7))} – ${fmtShort(addDays(start,9))} (flex)</div>`;
-  html += schedGrid(addDays(start, 7), 3);
+  html += `<div class="week-label">Next week · ${fmtShort(addDays(start,7))} – ${fmtShort(addDays(start,13))}</div>`;
+  html += schedGrid(addDays(start, 7), 7);
+  html += `<div class="week-label">Week after · ${fmtShort(addDays(start,14))} – ${fmtShort(addDays(start,20))}</div>`;
+  html += schedGrid(addDays(start, 14), 7);
 
   // Sunday prep box
   const prepLines = buildPrepTips(start);
