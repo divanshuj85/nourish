@@ -1596,6 +1596,22 @@ function storeOf(item, cat) {
   return 'Whole Foods';
 }
 
+function cleanIngredient(ing) {
+  if (ing.includes('—')) {
+    // "Mushrooms — 400g" format — name is already clean
+    const parts = ing.split(/\s*—\s*/);
+    return { name: parts[0].trim(), qty: parts[1]?.trim() || '' };
+  }
+  // "8 ounces mushrooms, trimmed and halved" format from URL-fetched recipes
+  // Strip directions after comma, then split leading quantity from ingredient name
+  const stripped = ing.split(',')[0].trim();
+  const qtyMatch = stripped.match(/^([\d¼½¾⅓⅔⅛⅜⅝⅞]+[\s\w./()-]*?)\s+((?:[A-Z][a-z]|[a-z]{2})[a-z\s]+)$/);
+  if (qtyMatch) {
+    return { name: qtyMatch[2].trim(), qty: qtyMatch[1].trim() };
+  }
+  return { name: stripped, qty: '' };
+}
+
 function buildGroceryItems() {
   const itemMap = {}; // key -> { name, qty, cat, store }
 
@@ -1605,10 +1621,8 @@ function buildGroceryItems() {
       const r = getRecipe(s[slot]);
       if (!r || !r.ingredients) return;
       r.ingredients.forEach(ing => {
-        const parts = ing.split(/\s*—\s*/);
-        const name = parts[0].trim();
-        const qty  = parts[1]?.trim() || '';
-        const key  = name.toLowerCase().replace(/\s+/g,' ');
+        const { name, qty } = cleanIngredient(ing);
+        const key = name.toLowerCase().replace(/\s+/g,' ');
         if (!itemMap[key]) {
           itemMap[key] = { name, qty, cat: catOf(key), store: storeOf(key, catOf(key)), forRecipes: [] };
         }
