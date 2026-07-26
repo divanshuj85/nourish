@@ -60,12 +60,24 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans
 
 /* Side stats rail — fills empty space on wide screens with live app data */
 .photo-rail { display: none; }
-@media (min-width: 1360px) {
+@media (min-width: 900px) {
   .photo-rail {
     display: flex; flex-direction: column; gap: 14px;
     width: 260px; flex: 0 0 260px; padding: 26px 28px 26px 0; box-sizing: border-box;
+    transition: width 0.25s ease, opacity 0.25s ease;
+  }
+  .photo-rail.collapsed {
+    width: 0; flex: 0 0 0; opacity: 0; overflow: hidden; padding: 0;
   }
 }
+.side-toggle-btn {
+  position: fixed; top: 18px; right: 12px; z-index: 20;
+  background: var(--accent); color: #fff; border: none; border-radius: 50%;
+  width: 32px; height: 32px; cursor: pointer; font-size: 15px;
+  display: none; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+@media (min-width: 900px) { .side-toggle-btn { display: flex; } }
 .side-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; box-shadow: var(--shadow); }
 .side-card-label { font-size: 10px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
 .side-meal-row { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); }
@@ -653,6 +665,7 @@ textarea { resize: vertical; min-height: 80px; }
 
   </main>
 
+  <button class="side-toggle-btn" id="side-toggle-btn" onclick="toggleSidePanel()" title="Toggle panel">⟩</button>
   <aside class="photo-rail" id="side-stats">
     <div class="side-card">
       <div class="side-card-label" id="side-today-date">Today</div>
@@ -923,6 +936,13 @@ function load() {
 // ─────────────────────────────────────────────
 // NAVIGATION
 // ─────────────────────────────────────────────
+function toggleSidePanel() {
+  const panel = document.getElementById('side-stats');
+  const btn = document.getElementById('side-toggle-btn');
+  const collapsed = panel.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '⟨' : '⟩';
+}
+
 function nav(id, el) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
