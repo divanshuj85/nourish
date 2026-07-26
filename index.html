@@ -2584,9 +2584,15 @@ function buildDailyPrepGroups() {
       const r = getRecipe(slot[mealSlot]);
       if (!r || !r.ingredients || !r.ingredients.length) return;
       PREP_TASK_LIBRARY.forEach(pt => {
-        // Filter out instruction-style lines (start with a step number or a verb phrase)
         const instructionRe = /^\s*(\d+[\.\)]\s|(?:whisk|toss|roast|rinse|cook|heat|stir|mix|combine|bring|add|place|remove|bake|grill|let|set|make|use|assemble|serve|drain|peel|chop|slice|dice|mince|wash|squeeze|zest|season|taste|spread|layer|top|fold|pour|transfer|cover|refrigerate|freeze|store|note|tip)\b)/i;
-        const matchingLines = r.ingredients.filter(ing => pt.match.test(ing.toLowerCase()) && !instructionRe.test(ing));
+        const matchingLines = r.ingredients.filter(ing => {
+          if (!pt.match.test(ing.toLowerCase())) return false;
+          if (instructionRe.test(ing)) return false;
+          // Skip malformed lines: starts with recipe name or is very long (blob)
+          if (ing.trim().startsWith(r.name)) return false;
+          if (ing.length > 80) return false;
+          return true;
+        });
         if (!matchingLines.length) return;
         const occKey = pt.task + '::' + tag + '::' + mealSlot + '::' + r.name;
         if (seenOcc.has(occKey)) return;
