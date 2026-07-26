@@ -241,6 +241,10 @@ textarea { resize: vertical; min-height: 80px; }
 .store-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .store-tab { padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border2); font-size: 12px; cursor: pointer; background: var(--bg); color: var(--text2); transition: all .12s; font-weight: 500; }
 .store-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.store-section { margin-bottom: 26px; }
+.store-section:last-child { margin-bottom: 0; }
+.store-section-head { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--text); padding-bottom: 8px; margin-bottom: 12px; border-bottom: 2px solid var(--accent); }
+.store-section-head i { color: var(--accent); font-size: 16px; }
 .store-pane { display: none; }
 .store-pane.active { display: block; }
 
@@ -312,6 +316,7 @@ textarea { resize: vertical; min-height: 80px; }
 .modal-title { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin-bottom: 14px; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
 .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text2); padding: 0; line-height: 1; }
 .swap-opt { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: var(--radius); border: 1px solid var(--border); font-size: 13px; cursor: pointer; margin-bottom: 5px; color: var(--text); transition: all .1s; }
+.swap-opt-freetext { background: var(--accent-tint); border-color: var(--accent); border-style: dashed; }
 .swap-opt:hover { background: var(--bg2); }
 
 /* Loading */
@@ -607,8 +612,16 @@ textarea { resize: vertical; min-height: 80px; }
           <button class="btn" style="color:#ef4444" onclick="clearAllGrocery()"><i class="ti ti-trash"></i> Clear all</button>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input type="text" id="grocery-add-input" placeholder="Add item (e.g. Almond milk, Sourdough bread…)" style="flex:1" onkeydown="if(event.key==='Enter')addManualGrocery()" />
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="text" id="grocery-add-input" placeholder="Add item (e.g. Almond milk)" style="flex:2;min-width:150px" onkeydown="if(event.key==='Enter')addManualGrocery()" />
+        <input type="text" id="grocery-add-qty" placeholder="Qty (optional)" style="flex:1;min-width:100px" onkeydown="if(event.key==='Enter')addManualGrocery()" />
+        <select id="grocery-add-store" style="flex:1;min-width:130px">
+          <option value="">Market Basket (default)</option>
+          <option value="Costco">Costco</option>
+          <option value="Indian store">Indian store</option>
+          <option value="Whole Foods">Whole Foods</option>
+          <option value="Trader Joe's">Trader Joe's</option>
+        </select>
         <button class="btn btn-primary" onclick="addManualGrocery()"><i class="ti ti-plus"></i> Add</button>
       </div>
       <div class="grocery-summary" id="grocery-summary"></div>
@@ -686,7 +699,8 @@ textarea { resize: vertical; min-height: 80px; }
       <span id="swap-label">Add meal</span>
       <button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button>
     </div>
-    <input type="text" id="swap-search" placeholder="Search recipes or type a meal name…" oninput="filterSwapOptions(this.value)" style="margin-bottom:10px" />
+    <input type="text" id="swap-search" placeholder="Search recipes or type anything (e.g. 'leftovers', 'takeout')…" oninput="filterSwapOptions(this.value)" style="margin-bottom:4px" />
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Doesn't have to be a saved recipe — type your own and use it as-is.</div>
     <div id="swap-options" style="max-height:320px;overflow-y:auto"></div>
   </div>
 </div>
@@ -738,6 +752,8 @@ const SNACK_ROTATION = [
   { name:'Apple oat bars', icon:'🍎', desc:'No refined sugar. Oats, apple, cinnamon, almond flour. Freezer-friendly.', tags:['veg','~4g each','25 min · makes 12'], color:'#fce7f3', textColor:'#9d174d' },
   { name:'Sabudana vada', icon:'✨', desc:'Sago, peanuts, potato. Crispy outside, soft inside. Kids go crazy for these.', tags:['veg','~3g protein','30 min · makes 16'], color:'#fef3c7', textColor:'#92400e' },
   { name:'Strawberry muffins', icon:'🍓', desc:'Yummy toddler food recipe. Freezer-friendly. Both kids loved it.', tags:['veg','~5g protein','30 min · makes 12'], color:'#fce7f3', textColor:'#9d174d' },
+  { name:'Sweet potato paneer nuggets', icon:'🍠', desc:'Mashed sweet potato + crumbled paneer, baked crisp. Hidden veg, big protein. Freeze half — reheats great.', tags:['veg','~8g protein','35 min · makes 18'], color:'var(--green-tint)', textColor:'var(--green-ink)' },
+  { name:'Moong dal chilla bites', icon:'🫓', desc:'Savory lentil pancakes cut into kid-size squares. Batch Sunday, freeze flat, reheat crisp all week.', tags:['veg','~9g protein','30 min · makes 16'], color:'var(--coral-tint)', textColor:'var(--coral-ink)' },
 ];
 
 const INITIAL_RECIPES = [
@@ -1568,20 +1584,26 @@ function renderSwapOptions(q) {
     : pool;
 
   const opts = document.getElementById('swap-options');
-  let html = filtered.slice(0, 12).map(r => `
+  let html = '';
+
+  // Free-text option — shown first and prominently whenever you've typed something
+  // that isn't an exact match to a saved recipe. Doesn't need to be pre-saved.
+  if (q.trim() && !filtered.find(r => r.name.toLowerCase() === lc)) {
+    const ft = q.trim();
+    const ftAttr = ft.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const ftDisp = ft.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    html += `<div class="swap-opt swap-opt-freetext" onclick="applySwap('${ftAttr}')">
+      <i class="ti ti-pencil" style="font-size:14px;color:var(--accent-dark)"></i>
+      <span style="flex:1">Use "<strong>${ftDisp}</strong>" as a one-off meal</span>
+    </div>`;
+  }
+
+  html += filtered.slice(0, 12).map(r => `
     <div class="swap-opt" onclick="applySwap('${(r.id||r.name).replace(/'/g,"\\'")}')">
       <span class="badge ${BADGE_CLASS[r.source]||''}">${SOURCES[r.source]||'—'}</span>
       <span style="flex:1">${r.name}</span>
       ${r.protein ? `<span class="badge ${PROTEIN_BADGE[r.protein]||''}" style="font-size:9px">${r.protein}</span>` : ''}
     </div>`).join('');
-
-  // Free-text option when user has typed something not matching a recipe
-  if (q.trim() && !filtered.find(r => r.name.toLowerCase() === lc)) {
-    html += `<div class="swap-opt" style="border-top:0.5px solid var(--border);margin-top:4px;padding-top:8px" onclick="applySwap(${JSON.stringify(q.trim())})">
-      <i class="ti ti-pencil" style="font-size:14px;color:var(--text3)"></i>
-      <span style="flex:1">Use "<strong>${q.trim()}</strong>" as-is</span>
-    </div>`;
-  }
   html += `<div class="swap-opt" onclick="applySwap(null)" style="color:var(--text3);margin-top:2px"><i class="ti ti-x" style="font-size:13px"></i> Clear this slot</div>`;
   opts.innerHTML = html;
 }
@@ -1832,9 +1854,10 @@ const CATS = [
   { id:'frozen',  name:'Frozen', icon:'❄️', color:'#e0f2fe', textColor:'#0369a1' },
   { id:'sauces',  name:'Sauces & condiments', icon:'🫙', color:'#f3f4f6', textColor:'#374151' },
   { id:'household',name:'Household', icon:'🧼', color:'#fce7f3', textColor:'#9d174d' },
+  { id:'other',   name:'Other', icon:'🛒', color:'#f3f4f6', textColor:'#374151' },
 ];
 
-const STORES = ['All stores', 'Costco', 'Whole Foods', 'Indian store', 'Target'];
+const STORES = ['All stores', 'Market Basket', 'Costco', 'Indian store', 'Whole Foods', "Trader Joe's"];
 
 // Long-shelf-life basics most kitchens already have on hand — separated out
 // of the main shopping list rather than left off it entirely.
@@ -1850,19 +1873,15 @@ function catOf(item) {
   if (/rice|pasta|noodle|flour|bread|oat|quinoa|farro|barley|couscous|lentil|rajma|dal|sugar|salt|oil|sev|atta|semolina|bulgar|millet|gnocchi|cracker/.test(t)) return 'dry';
   if (/soy sauce|sesame oil|olive oil|chili crisp|hot sauce|vinegar|miso|pesto|sriracha|hoisin|oyster|tamari|fish sauce|honey|maple|salsa|mustard|ketchup|mayo/.test(t)) return 'sauces';
   if (/soap|paper towel|toilet|wipe|tissue|shampoo|conditioner|detergent|cleaner/.test(t)) return 'household';
-  return 'dry';
+  // Unrecognized items land here, not in "dry goods" — an obscure/unfamiliar name
+  // shouldn't be assumed to be a pantry staple you already have.
+  return 'other';
 }
 
 function storeOf(item, cat) {
-  const t = item.toLowerCase();
-  // Indian store
-  if (/paneer|dahi|rajma|dal|atta|sev|garam masala|chana masala|amchur|ajwain|asafoetida|hing|tamarind|jaggery|ghee|moong|toor|urad|chana dal|masoor/.test(t)) return 'Indian store';
-  // Target household
-  if (cat === 'household') return 'Target';
-  // Costco bulk
-  if (/egg|milk|bread|butter|chicken|frozen|olive oil|toilet|paper towel|dish soap|baby wipe|string cheese|yogurt|granola|berr|banana|garlic|ginger|chickpea|black bean|tuna|salmon|almond|cashew/.test(t)) return 'Costco';
-  // Whole Foods / H-Mart specialty
-  return 'Whole Foods';
+  // Everything defaults to Market Basket. Items only go to another store
+  // (e.g. Trader Joe's) when you manually assign one via the store dropdown.
+  return 'Market Basket';
 }
 
 function cleanIngredient(ing) {
@@ -1908,7 +1927,11 @@ function buildGroceryItems() {
   // Manual additions (always included, with a remove flag)
   state.manualGrocery.forEach(m => {
     const key = '__manual__' + m.name.toLowerCase();
-    itemMap[key] = { ...m, manual: true, isStaple: m.isStaple != null ? m.isStaple : STAPLE_KEYWORDS.test(m.name.toLowerCase()) };
+    const nameLc = m.name.toLowerCase();
+    // Same rule as schedule-derived items: dry goods & pantry always folds into the
+    // staples section (regardless of keyword match), so nothing silently disappears.
+    const isStaple = m.isStaple != null ? m.isStaple : (STAPLE_KEYWORDS.test(nameLc) || (m.cat || catOf(nameLc)) === 'dry');
+    itemMap[key] = { ...m, manual: true, isStaple };
   });
 
   return Object.values(itemMap);
@@ -1945,10 +1968,16 @@ function groceryPantryRow(item) {
 }
 
 function promoteStapleToList(name, qty) {
-  if (state.manualGrocery.find(m => m.name.toLowerCase() === name.toLowerCase())) return; // already on the active list
-  const cat = catOf(name.toLowerCase());
-  const store = storeOf(name.toLowerCase(), cat);
-  state.manualGrocery.push({ name, qty: qty || '', cat, store, isStaple: false });
+  // If it's already a manual entry (e.g. you typed it in yourself and it got swept
+  // into the pantry section), just flip it back to active instead of no-op'ing.
+  const existing = state.manualGrocery.find(m => m.name.toLowerCase() === name.toLowerCase());
+  if (existing) {
+    existing.isStaple = false;
+  } else {
+    const cat = catOf(name.toLowerCase());
+    const store = storeOf(name.toLowerCase(), cat);
+    state.manualGrocery.push({ name, qty: qty || '', cat, store, isStaple: false });
+  }
   save();
   renderGrocery();
 }
@@ -1975,18 +2004,38 @@ function renderGrocery() {
   // store tabs
   const allStores = ['All stores', ...stores];
   document.getElementById('store-tabs').innerHTML = allStores.map((st, i) =>
-    `<button class="store-tab${i===0?' active':''}" onclick="switchStore('${st}',this)">${st}</button>`
+    `<button class="store-tab${i===0?' active':''}" onclick="switchStore('${st.replace(/'/g,"\\'")}',this)">${st}</button>`
   ).join('');
 
   // panes
   const body = document.getElementById('grocery-body');
   body.innerHTML = allStores.map(st => {
     const stItemsAll = st === 'All stores' ? items : items.filter(i => i.store === st);
-    const stItems = stItemsAll.filter(i => !i.isStaple);
-    const stPantry = stItemsAll.filter(i => i.isStaple);
     if (!stItemsAll.length) return `<div id="pane-${st.replace(/ /g,'-')}" class="store-pane${st==='All stores'?' active':''}"><div style="color:var(--text3);font-size:13px;padding:24px 0;text-align:center">All done — nothing left to buy here.</div></div>`;
-    return `<div id="pane-${st.replace(/ /g,'-')}" class="store-pane${st==='All stores'?' active':''}">
-      ${CATS.filter(c => c.id !== 'dry').map(cat => {
+
+    // "All stores" groups by store first, then category within each store.
+    // Individual store tabs just show that store's categories directly.
+    const innerHtml = st === 'All stores'
+      ? stores.map(storeName => {
+          const storeItems = items.filter(i => i.store === storeName);
+          if (!storeItems.length) return '';
+          return `<div class="store-section">
+            <div class="store-section-head"><i class="ti ti-building-store"></i> ${storeName}</div>
+            ${renderCategorySections(storeItems, storeName)}
+          </div>`;
+        }).join('')
+      : renderCategorySections(stItemsAll, st);
+
+    return `<div id="pane-${st.replace(/ /g,'-')}" class="store-pane${st==='All stores'?' active':''}">${innerHtml}</div>`;
+  }).join('');
+}
+
+// Renders the category blocks + pantry/staples block for one store's worth of items.
+// keyStore is the store name used for grocery-checked keys (always the item's real store).
+function renderCategorySections(stItemsAll, keyStore) {
+  const stItems = stItemsAll.filter(i => !i.isStaple);
+  const stPantry = stItemsAll.filter(i => i.isStaple);
+  return `${CATS.filter(c => c.id !== 'dry').map(cat => {
         const ci = stItems.filter(i => i.cat === cat.id);
         if (!ci.length) return '';
         return `<div class="cat-block" style="border-left-color:${cat.textColor}">
@@ -1996,7 +2045,7 @@ function renderGrocery() {
             <span class="cat-count">${ci.length} item${ci.length>1?'s':''}</span>
           </div>
           <div class="g-items">
-            ${ci.map(item => groceryItemRow(item, st)).join('')}
+            ${ci.map(item => groceryItemRow(item, keyStore)).join('')}
           </div>
         </div>`;
       }).join('')}
@@ -2009,9 +2058,7 @@ function renderGrocery() {
         <div class="g-items">
           ${stPantry.map(item => groceryPantryRow(item)).join('')}
         </div>
-      </details>` : ''}
-    </div>`;
-  }).join('');
+      </details>` : ''}`;
 }
 
 function switchStore(st, btn) {
@@ -2038,19 +2085,29 @@ function clearChecked() {
 
 function addManualGrocery() {
   const inp = document.getElementById('grocery-add-input');
+  const qtyInp = document.getElementById('grocery-add-qty');
+  const storeInp = document.getElementById('grocery-add-store');
   const raw = inp.value.trim();
   if (!raw) return;
-  // Split "name — qty" or "name, qty" or just "name"
-  const parts = raw.split(/\s*[—\-,]\s*/);
-  const name = parts[0].trim();
-  const qty = parts[1] ? parts[1].trim() : '';
+
+  let name = raw;
+  let qty = (qtyInp && qtyInp.value || '').trim();
+  // Backward-compatible fallback: if no qty was typed in its own box, allow the old
+  // "name — qty" / "name, qty" single-field shorthand.
+  if (!qty) {
+    const parts = raw.split(/\s*[—\-,]\s*/);
+    if (parts.length > 1) { name = parts[0].trim(); qty = parts.slice(1).join(', ').trim(); }
+  }
+
   const cat = catOf(name);
-  const store = storeOf(name, cat);
+  const store = (storeInp && storeInp.value) || storeOf(name, cat);
   // Avoid duplicates by name
   if (!state.manualGrocery.find(m => m.name.toLowerCase() === name.toLowerCase())) {
     state.manualGrocery.push({ name, qty, cat, store });
   }
   inp.value = '';
+  if (qtyInp) qtyInp.value = '';
+  if (storeInp) storeInp.value = '';
   save();
   renderGrocery();
 }
