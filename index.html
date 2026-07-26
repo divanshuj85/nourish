@@ -2134,14 +2134,17 @@ function clearMealPlan() {
 }
 
 function clearAllGrocery() {
-  if (!confirm('Clear the entire grocery list? This won\'t affect your meal plan.')) return;
+  if (!confirm('Clear the grocery list and meal plan?')) return;
+  Object.keys(state.schedule).forEach(k => {
+    state.schedule[k] = { lunch: null, dinner: null, kidsVeg: '' };
+  });
   state.checkedGrocery = {};
   state.manualGrocery = [];
   state.dismissedGrocery = {};
   state.showCheckedGrocery = false;
   save();
   renderGrocery();
-  showToast('Grocery list cleared');
+  showToast('Grocery list and meal plan cleared');
 }
 
 function toggleShowChecked() {
