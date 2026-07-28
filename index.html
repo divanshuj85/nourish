@@ -1929,7 +1929,15 @@ function buildGroceryItems() {
       const r = getRecipe(s[slot]);
       if (!r || !r.ingredients) return;
       r.ingredients.forEach(ing => {
+        // Skip instruction steps, section headers, and non-ingredient lines
+        const raw = ing.replace(/^\s*[\*\-]\s*/, '').trim();
+        if (!raw || raw.length > 120) return;
+        const skipRe = /^(ingredients?|instructions?|directions?|for\s+\w+|notes?|steps?|method|yield|serving|preparation|salad|dressing|optional)\s*:?\s*$/i;
+        if (skipRe.test(raw)) return;
+        const instructionRe = /^\s*(\d+[\.\)]\s|(?:preheat|spread|roast|allow|combine|remove|taste|assemble|add|top|finish|toss|whisk|bake|heat|stir|mix|bring|place|serve|drain|make|use|cook|rinse|let|set|fold|pour|transfer|cover|refrigerate|freeze|store)\b)/i;
+        if (instructionRe.test(raw)) return;
         const { name, qty } = cleanIngredient(ing);
+        if (!name || name.length < 2) return;
         const key = name.toLowerCase().replace(/\s+/g,' ');
         if (!itemMap[key]) {
           const cat = catOf(key);
