@@ -1904,7 +1904,8 @@ function storeOf(item, cat) {
   return 'Market Basket';
 }
 
-const UNITS_RE = /^([\d¼½¾⅓⅔⅛⅜⅝⅞\/\s\+\-\.]+\s*(?:cups?|tablespoons?|tbsps?|teaspoons?|tsps?|pounds?|lbs?|ounces?|oz|grams?|g|kg|ml|liters?|cloves?|cans?|jars?|bunches?|bunch|pinch(?:es)?|dash(?:es)?|slices?|pieces?|heads?|stalks?|sprigs?|handfuls?|strips?|rashers?|fillets?|small|medium|large|whole))\s+(.+)/i;
+const UNIT_WORDS = '(?:cups?|tablespoons?|tbsps?|teaspoons?|tsps?|pounds?|lbs?|ounces?|oz|grams?|g|kg|ml|liters?|cloves?|cans?|jars?|bunches?|bunch|pinch(?:es)?|dash(?:es)?|slices?|pieces?|heads?|stalks?|sprigs?|handfuls?|strips?|rashers?|fillets?|small|medium|large|whole)';
+const UNITS_RE = new RegExp('^((?:[\\d¼½¾⅓⅔⅛⅜⅝⅞\\/\\s\\+\\-\\.]+\\s*' + UNIT_WORDS + '(?:\\s+(?:plus|and)\\s+[\\d¼½¾⅓⅔⅛⅜⅝⅞\\/\\s\\+\\-\\.]+\\s*' + UNIT_WORDS + ')*))\\s+(.+)', 'i');
 const PREP_SUFFIX_RE = /,\s*(?:peeled|trimmed|halved|quartered|diced|chopped|minced|sliced|grated|crumbled|crushed|smashed|toasted|drained|rinsed|softened|melted|divided|optional|to taste|for serving|cut\b|finely\b|roughly\b|coarsely\b|thinly\b|freshly\b).*/i;
 
 function cleanIngredient(ing) {
