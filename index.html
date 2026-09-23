@@ -712,7 +712,7 @@ textarea { resize: vertical; min-height: 80px; }
       <span id="swap-label">Add meal</span>
       <button class="modal-close" onclick="closeModal()"><i class="ti ti-x"></i></button>
     </div>
-    <input type="text" id="swap-search" placeholder="Search recipes or type anything (e.g. 'leftovers', 'takeout')…" oninput="filterSwapOptions(this.value)" style="margin-bottom:4px" />
+    <input type="text" id="swap-search" placeholder="Search recipes or type anything (e.g. 'leftovers', 'takeout')…" oninput="filterSwapOptions(this.value)" onkeydown="if(event.key==='Enter') applySwapFromEnter(this.value)" style="margin-bottom:4px" />
     <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Doesn't have to be a saved recipe — type your own and use it as-is.</div>
     <div id="swap-options" style="max-height:320px;overflow-y:auto"></div>
   </div>
@@ -767,6 +767,10 @@ const SNACK_ROTATION = [
   { name:'Strawberry muffins', icon:'🍓', desc:'Yummy toddler food recipe. Freezer-friendly. Both kids loved it.', tags:['veg','~5g protein','30 min · makes 12'], color:'#fce7f3', textColor:'#9d174d' },
   { name:'Sweet potato paneer nuggets', icon:'🍠', desc:'Mashed sweet potato + crumbled paneer, baked crisp. Hidden veg, big protein. Freeze half — reheats great.', tags:['veg','~8g protein','35 min · makes 18'], color:'var(--green-tint)', textColor:'var(--green-ink)' },
   { name:'Moong dal chilla bites', icon:'🫓', desc:'Savory lentil pancakes cut into kid-size squares. Batch Sunday, freeze flat, reheat crisp all week.', tags:['veg','~9g protein','30 min · makes 16'], color:'var(--coral-tint)', textColor:'var(--coral-ink)' },
+  { name:'Beetroot chocolate muffins', icon:'🍫', desc:'Cocoa hides the grated beet — deep chocolatey, barely sweet. Freeze half, reheats soft.', tags:['veg','~6g protein','30 min · makes 12'], color:'var(--accent-tint)', textColor:'var(--accent-dark)' },
+  { name:'Paneer spinach pinwheels', icon:'🌯', desc:'Whole wheat wraps rolled with paneer & spinach, sliced into rounds. Batch Sunday, freeze, reheat crisp.', tags:['veg','~9g protein','25 min · makes 14'], color:'var(--amber-tint)', textColor:'var(--amber-ink)' },
+  { name:'Carrot cheddar muffins', icon:'🥕', desc:'Savory whole-wheat base with grated carrot & sharp cheddar. Batch Sunday, freeze — reheats soft for lunchboxes.', tags:['veg','~6g protein','30 min · makes 12'], color:'var(--green-tint)', textColor:'var(--green-ink)' },
+  { name:'Ragi peanut butter cookies', icon:'🍪', desc:'Finger-millet flour, banana & peanut butter — no refined sugar, iron-rich. Freeze the dough or the baked batch.', tags:['veg','~4g each','25 min · makes 18'], color:'var(--coral-tint)', textColor:'var(--coral-ink)' },
 ];
 
 const INITIAL_RECIPES = [
@@ -806,6 +810,7 @@ let state = {
   checkedGrocery: {}, // { itemKey: true }
   manualGrocery: [],  // [{ name, qty, cat, store }]
   dismissedGrocery: {}, // { itemName: true } — "we already have it"
+  customKidsVegs: [],   // kids-veg entries you typed in yourself, saved for reuse
   showCheckedGrocery: false,
   snackPicks: [],     // this week picks (indices into SNACK_ROTATION)
   nextSnackPicks: [], // next week picks
@@ -851,6 +856,7 @@ function save() {
     checkedGrocery: state.checkedGrocery,
     manualGrocery: state.manualGrocery,
     dismissedGrocery: state.dismissedGrocery,
+    customKidsVegs: state.customKidsVegs,
     snackPicks: state.snackPicks,
     nextSnackPicks: state.nextSnackPicks,
   }));
@@ -921,6 +927,7 @@ function load() {
       state.checkedGrocery = d.checkedGrocery || {};
       state.manualGrocery = d.manualGrocery || [];
       state.dismissedGrocery = d.dismissedGrocery || {};
+      state.customKidsVegs = d.customKidsVegs || [];
       state.snackPicks = d.snackPicks || [0, 1];
       state.nextSnackPicks = d.nextSnackPicks || [];
       return;
@@ -929,6 +936,7 @@ function load() {
   state.recipes = [...INITIAL_RECIPES];
   state.schedule = {};
   state.checkedGrocery = {};
+  state.customKidsVegs = [];
   state.snackPicks = [0, 1];
   state.nextSnackPicks = [];
 }
@@ -1630,6 +1638,16 @@ function renderSwapOptions(q) {
 
 function filterSwapOptions(q) { renderSwapOptions(q); }
 
+// Type-and-hit-Enter shortcut: skips having to click the "use as-is" option.
+// If the text exactly matches a saved recipe's name, use that recipe (so you get its
+// ingredients/badges); otherwise slot it in as a plain one-off meal.
+function applySwapFromEnter(q) {
+  const trimmed = q.trim();
+  if (!trimmed) return;
+  const exact = state.recipes.find(r => r.name.toLowerCase() === trimmed.toLowerCase());
+  applySwap(exact ? exact.id : trimmed);
+}
+
 function applySwap(id) {
   const { date, slot } = state.swapTarget;
   if (!state.schedule[date]) state.schedule[date] = { lunch: null, dinner: null, kidsVeg: '' };
@@ -1683,20 +1701,36 @@ function openKvModal(date) {
   setTimeout(() => { inp.focus(); inp.select(); }, 80);
 }
 
+// Escape a raw string for safe embedding inside a single-quoted onclick="..." JS-call
+// attribute (handles backslashes/quotes for the JS literal, and separately HTML-escapes
+// what's actually displayed). Using JSON.stringify() here was the bug: it wraps values
+// in double quotes, which collide with the double-quoted onclick attribute and silently
+// break the click handler.
+function jsAttrEscape(s) { return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function htmlEscape(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function allKidsVegs() {
+  // Built-in list plus anything you've typed in yourself, saved for reuse.
+  const custom = state.customKidsVegs || [];
+  return [...KIDS_VEGS, ...custom.filter(v => !KIDS_VEGS.includes(v))];
+}
+
 function renderKvOptions(q) {
   const lc = q.trim().toLowerCase();
+  const all = allKidsVegs();
   const suggestions = lc
-    ? KIDS_VEGS.filter(v => v.toLowerCase().includes(lc))
-    : KIDS_VEGS;
+    ? all.filter(v => v.toLowerCase().includes(lc))
+    : all;
   let html = suggestions.map(v => `
-    <div class="swap-opt" onclick="applyKv(${JSON.stringify(v)})">
+    <div class="swap-opt" onclick="applyKv('${jsAttrEscape(v)}')">
       <i class="ti ti-leaf" style="font-size:13px;color:#059669"></i>
-      <span style="flex:1">${v}</span>
+      <span style="flex:1">${htmlEscape(v)}</span>
     </div>`).join('');
   if (q.trim() && !suggestions.find(v => v.toLowerCase() === lc)) {
-    html = `<div class="swap-opt" onclick="applyKv(${JSON.stringify(q.trim())})">
+    const ft = q.trim();
+    html = `<div class="swap-opt" onclick="applyKv('${jsAttrEscape(ft)}')">
       <i class="ti ti-pencil" style="font-size:13px;color:var(--text3)"></i>
-      <span style="flex:1">Use "<strong>${q.trim()}</strong>"</span>
+      <span style="flex:1">Use "<strong>${htmlEscape(ft)}</strong>" &amp; save to library</span>
     </div>` + html;
   }
   html += `<div class="swap-opt" onclick="applyKv('')" style="color:var(--text3);margin-top:2px"><i class="ti ti-x" style="font-size:13px"></i> Clear veg side</div>`;
@@ -1709,6 +1743,12 @@ function applyKv(val) {
   if (!kvTarget) return;
   if (!state.schedule[kvTarget]) state.schedule[kvTarget] = { lunch: null, dinner: null, kidsVeg: '' };
   state.schedule[kvTarget].kidsVeg = val;
+  // Save any new free-text entry into the reusable library so it shows up as a
+  // suggestion next time instead of being a one-off.
+  if (val && !allKidsVegs().some(v => v.toLowerCase() === val.toLowerCase())) {
+    if (!state.customKidsVegs) state.customKidsVegs = [];
+    state.customKidsVegs.push(val);
+  }
   save();
   closeKvModal();
   renderSchedule();
@@ -2478,6 +2518,7 @@ function pushToCloud() {
     checkedGrocery: state.checkedGrocery,
     manualGrocery: state.manualGrocery,
     dismissedGrocery: state.dismissedGrocery || {},
+    customKidsVegs: state.customKidsVegs || [],
     snackPicks: state.snackPicks,
     nextSnackPicks: state.nextSnackPicks,
     updatedAt: Date.now(),
@@ -2491,6 +2532,7 @@ function applyRemoteState(data) {
   state.checkedGrocery  = data.checkedGrocery || {};
   state.manualGrocery   = data.manualGrocery || [];
   state.dismissedGrocery = data.dismissedGrocery || {};
+  state.customKidsVegs  = data.customKidsVegs || [];
   state.snackPicks      = data.snackPicks || [0,1];
   state.nextSnackPicks  = data.nextSnackPicks || [];
   // Also mirror to localStorage
